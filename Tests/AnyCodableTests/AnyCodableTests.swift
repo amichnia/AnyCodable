@@ -66,9 +66,85 @@ class AnyCodableTests: XCTestCase {
         
         XCTAssertEqual(encodedJSONObject, expectedJSONObject)
     }
-    
+
+    func testDynamicLookupGetters() {
+        let dictionary: AnyCodable = AnyCodable( [
+            "boolean": true,
+            "integer": 1,
+            "double": 3.14159265358979323846,
+            "string": "string",
+            "array": [1, 2, 3],
+            "nested": [
+                "a": "alpha",
+                "b": "bravo",
+                "c": "charlie",
+                "array": [
+                    1,
+                    2,
+                    [
+                        "a": "alpha",
+                        "b": "bravo",
+                        "c": "deep charlie"
+                    ]
+                ],
+            ]
+        ])
+
+        XCTAssertEqual(dictionary.nested?.a, "alpha")
+        XCTAssertEqual(dictionary.nested?.array?[2]?.c, "deep charlie")
+    }
+
+    func testDynamicLookupSetters() {
+        var dictionary: AnyCodable = AnyCodable( [
+            "boolean": true,
+            "integer": 1,
+            "double": 3.14159265358979323846,
+            "string": "string",
+            "array": [1, 2, 3],
+            "nested": [
+                "a": "alpha",
+                "b": "bravo",
+                "c": "charlie",
+                "array": [
+                    1,
+                    2,
+                    [
+                        "a": "alpha",
+                        "b": "bravo",
+                        "c": "deep charlie"
+                    ]
+                ],
+            ]
+        ])
+
+        // Initial verify structure
+        XCTAssertEqual(dictionary.nested?.a, "alpha")
+        XCTAssertEqual(dictionary.nested?.array?[2]?.c, "deep charlie")
+
+        // Update json structure
+        dictionary.nested?.array?[2]?.c = "not charlie"
+        XCTAssertEqual(dictionary.nested?.array?[2]?.c, "not charlie")
+
+        // Set nil to remove keys
+        dictionary.nested?.array?[2]?.c = nil
+        XCTAssertNil(dictionary.nested?.array?[2]?.c)
+
+        // Set custom structures
+        dictionary.nested?.array?[2]?.c = AnyCodable(["k1": 1, "2": 2])
+        XCTAssertEqual(dictionary.nested?.array?[2]?.c?.k1, 1)
+        XCTAssertEqual(dictionary.nested?.array?[2]?.c?.2, 2)
+
+        // Aletrnative array index accessors
+        XCTAssertEqual(dictionary.nested?.array?.2?.c?.k1, 1)
+        XCTAssertEqual(dictionary.nested?.array?.2?.c?.2, 2)
+        XCTAssertEqual(dictionary.nested?.array?.2?.c?.3, nil)
+        XCTAssertEqual(dictionary.nested?.array?.3?.c?.3, nil)
+    }
+
     static var allTests = [
         ("testJSONDecoding", testJSONDecoding),
         ("testJSONEncoding", testJSONEncoding),
+        ("testDynamicLookupGetters", testJSONEncoding),
+        ("testDynamicLookupSetters", testJSONEncoding),
     ]
 }

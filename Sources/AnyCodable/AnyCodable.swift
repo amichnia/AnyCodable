@@ -1,23 +1,95 @@
 import Foundation
 
+// Helper to handle out of bounds on array with nil
+extension Array {
+    subscript (safe index: Int) -> Element? {
+        return indices ~= index ? self[index] : nil
+    }
+}
+
 /**
  A type-erased `Codable` value.
- 
+
  The `AnyCodable` type forwards encoding and decoding responsibilities
  to an underlying value, hiding its specific underlying type.
- 
+
  You can encode or decode mixed-type values in dictionaries
  and other collections that require `Encodable` or `Decodable` conformance
  by declaring their contained type to be `AnyCodable`.
- 
+
  - SeeAlso: `AnyEncodable`
  - SeeAlso: `AnyDecodable`
  */
+@dynamicMemberLookup
 public struct AnyCodable: Codable {
-    public let value: Any
-    
+    public var value: Any
+
+    public init<T>(_ value: T) {
+        self.value = value
+    }
+
     public init<T>(_ value: T?) {
         self.value = value ?? ()
+    }
+
+    subscript(dynamicMember member: String) -> AnyCodable? {
+        get {
+            switch self.value {
+            case let anyCodable as AnyCodable:
+                return anyCodable[dynamicMember: member]
+            case let dictionary as [String: Any?] where dictionary[member] != nil:
+                return AnyCodable(dictionary[member]!)
+            case let array as [Any] where Int(member) != nil:
+                return AnyCodable(array[safe: Int(member)!])
+            default:
+                return nil
+            }
+        }
+        set {
+            switch self.value {
+            case var anyCodable as AnyCodable:
+                anyCodable[dynamicMember: member] = newValue
+                self.value = anyCodable
+            case var dictionary as [String: Any?]:
+                if let newValue = newValue {
+                    dictionary[member] = newValue.value
+                } else {
+                    dictionary.removeValue(forKey: member)
+                }
+                self.value = dictionary
+            default:
+                break
+            }
+        }
+    }
+
+    subscript(index: Int) -> AnyCodable? {
+        get {
+            switch self.value {
+            case let anyCodable as AnyCodable:
+                return anyCodable[index]
+            case let array as [Any]:
+                return AnyCodable(array[safe: index])
+            default:
+                return nil
+            }
+        }
+        set {
+            guard let newValue = newValue else {
+                return // ??? not sure what to do here, like what means array[2] = nil
+            }
+
+            switch self.value {
+            case var anyCodable as AnyCodable:
+                anyCodable[index] = newValue
+                self.value = anyCodable
+            case var array as [Any] where index >= 0 && index < array.count:
+                array[index] = newValue as Any
+                self.value = array
+            default:
+                break
+            }
+        }
     }
 }
 
